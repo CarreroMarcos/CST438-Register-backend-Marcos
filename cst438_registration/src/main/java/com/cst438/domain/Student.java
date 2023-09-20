@@ -56,4 +56,9 @@ public class Student {
 				+ statusCode + ", status=" + status + "]";
 	}
 
+	public Student orElse(Object object) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }
