@@ -1,5 +1,6 @@
 package com.cst438.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,14 +32,13 @@ import com.cst438.service.GradebookService;
 public class StudentController {
 	
 	@Autowired
-	CourseRepository courseRepository;
-	
-	@Autowired
 	StudentRepository studentRepository;
 	
 	@Autowired
 	EnrollmentRepository enrollmentRepository;
 	
+	
+	// find by student by ID
 	@GetMapping("/student/{student_id}")
 	public StudentDTO getStudent(@PathVariable("student_id") int id) {
 	    Student student = studentRepository.findByStudentId(id);
@@ -49,52 +49,51 @@ public class StudentController {
 	    }
 	}
 	
-	
+	// Add a student to the repo
 	@PostMapping("/student")
-	@Transactional
-	public int createStudent(@RequestBody StudentDTO student) {
-		String name = student.name();
-		String email = student.studentEmail();
-		
-		Student test = studentRepository.findByEmail(email);
-		
-		if (test != null) {
-			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Email already in system  "+email);
+	public int createStudent(@RequestBody StudentDTO sdto) {
+		Student check = studentRepository.findByEmail(sdto.studentEmail());
+		if (check != null) {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.studentEmail());
 		}
-		Student newStudent = new Student();
-		newStudent.setName(name);
-		newStudent.setEmail(email);
-		studentRepository.save(newStudent);
-		
-		return newStudent.getStudent_id();
-	}
-	
-	
-	@DeleteMapping("/student/{student_id}")
-	public void deleteStudent(@PathVariable("student_id") int id, @RequestParam("force") Optional<String> force) {
+		Student s = new Student();
+		s.setEmail(sdto.studentEmail());
+		s.setName(sdto.name());
+		s.setStatusCode(sdto.statusCode());
+		s.setStatus(sdto.status());
+		studentRepository.save(s);
 
-	    if (force.isPresent() && force.get().equals("true")) {
-	        studentRepository.deleteById(id);
-	    } else {
-	        Student student = studentRepository.findById(id).orElse(null);
-	        if (student != null) {
-	        	int student_id = student.getStudent_id();
-	            if (enrollmentRepository.findEnrollmentByStudentId(student_id).isEmpty()) {
-	                studentRepository.deleteById(id);
-	            } else {
-	                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete student.");
-	            }
-	        } else {
-	            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with ID: " + id);
-	        }
-	    }		
+		return s.getStudent_id();
 	}
 	
+	// Deletes a student with optional force param
+	@DeleteMapping("/student/{id}")
+	public void deleteStudent(@PathVariable("id") int id, @RequestParam("force") Optional<String> force) {
+		Student s = studentRepository.findById(id).orElse(null);
+		if (s!=null) {
+
+			List<Enrollment> list = enrollmentRepository.findByStudentId(id);
+			if (list.size()>0 && force.isEmpty()) {
+				throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student has enrollments");
+			} else {
+				studentRepository.deleteById(id);
+			}
+		} else {
+			return;
+		}
+		
+	}
+	
+	// Updates existing student with new info
 	@PutMapping("/student/{student_id}")
 	public void updateStudent(@PathVariable("student_id") int id, @RequestBody StudentDTO studentDTO) {
 	    Student existingStudent = studentRepository.findById(id).orElse(null);
 
-	    if (existingStudent != null) {
+	    if (existingStudent != null && !existingStudent.getEmail().equals(studentDTO.studentEmail())) {
+	    	Student check = studentRepository.findByEmail(studentDTO.studentEmail());
+			if (check != null) {
+				throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+studentDTO.studentEmail());
+			}
 	        existingStudent.setName(studentDTO.name());
 	        existingStudent.setEmail(studentDTO.studentEmail());
 	        existingStudent.setStatusCode(studentDTO.statusCode());
@@ -106,10 +105,16 @@ public class StudentController {
 	    }
 	}
 	
+	// Puts all the students in the DB into an array
 	@GetMapping("/student")
-	public StudentDTO[] getAllStudent() {
-	    List<Student> students = studentRepository.findAll();
-	    return createStudentDTOs(students);
+	public StudentDTO[] getStudents() {
+		Iterable<Student> list = studentRepository.findAll();
+		ArrayList<StudentDTO> alist = new ArrayList<>();
+		for (Student s : list) {
+			StudentDTO sdto = new StudentDTO(s.getStudent_id(), s.getName(), s.getEmail(), s.getStatusCode(), s.getStatus());
+			alist.add(sdto);
+		}
+		return alist.toArray(new StudentDTO[alist.size()]);
 	}
 	
 	

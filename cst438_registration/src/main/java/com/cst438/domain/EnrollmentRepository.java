@@ -19,5 +19,5 @@ public interface EnrollmentRepository extends CrudRepository <Enrollment, Intege
 	Enrollment findByEmailAndCourseId(@Param("email") String email, @Param("course_id") int course_id);
 	
     @Query("select e from Enrollment e where e.student.student_id = :studentId")
-    List<Enrollment> findEnrollmentByStudentId(@Param("studentId") int studentId);	
+    List<Enrollment> findByStudentId(@Param("studentId") int studentId);	
 }
