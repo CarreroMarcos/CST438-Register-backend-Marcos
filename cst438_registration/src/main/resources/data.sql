@@ -20,3 +20,4 @@ insert into enrollment values
 (3, 1, 2020, 'Fall', 31045, null),
 (4, 2, 2020, 'Fall', 31045, null),
 (5, 3, 2020, 'Fall', 31045, null);
+
