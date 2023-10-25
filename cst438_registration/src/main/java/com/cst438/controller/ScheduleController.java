@@ -1,6 +1,7 @@
 package com.cst438.controller;
 
 import java.util.List;
+import java.security.Principal;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,8 @@ import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.ScheduleDTO;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentRepository;
+import com.cst438.domain.User;
+import com.cst438.domain.UserRepository;
 import com.cst438.service.GradebookService;
 
 @RestController
@@ -38,16 +41,21 @@ public class ScheduleController {
 	
 	@Autowired
 	GradebookService gradebookService;
+	
+	@Autowired
+	private UserRepository userRepository;
 	/*
 	 * get current schedule for student.
 	 */
 	@GetMapping("/schedule")
-	public ScheduleDTO[] getSchedule( @RequestParam("year") int year, @RequestParam("semester") String semester ) {
+	public ScheduleDTO[] getSchedule(Principal principal, @RequestParam("year") int year, @RequestParam("semester") String semester ) {
 		System.out.println("/schedule called.");
-		String student_email = "test@csumb.edu";   // student's email 
-		
+		String alias = principal.getName();
+		User currentUser = userRepository.findByAlias(alias);
+		String student_email = currentUser.getEmail();   // student's email 
+		System.out.print(alias);
 		Student student = studentRepository.findByEmail(student_email);
-		if (student != null) {
+		if (student != null && currentUser.getRole().equals("STUDENT")) {
 			System.out.println("/schedule student "+student.getName()+" "+student.getStudent_id());
 			List<Enrollment> enrollments = enrollmentRepository.findStudentSchedule(student_email, year, semester);
 			ScheduleDTO[] sched = createSchedule(year, semester, student, enrollments);
@@ -61,13 +69,15 @@ public class ScheduleController {
 	 */
 	@PostMapping("/schedule/course/{id}")
 	@Transactional
-	public ScheduleDTO addCourse( @PathVariable int id  ) { 
-		String student_email = "test@csumb.edu";   // student's email 
+	public ScheduleDTO addCourse(Principal principal, @PathVariable int id  ) { 
+		String role_alias = principal.getName();
+		User currentUser = userRepository.findByAlias(role_alias);
+		String student_email = currentUser.getEmail();  // student's email 
 		Student student = studentRepository.findByEmail(student_email);
 		Course course  = courseRepository.findById(id).orElse(null);
 		// student.status
 		// = 0  ok to register.  != 0 registration is on hold.		
-		if (student!= null && course!=null && student.getStatusCode()==0) {
+		if (student!= null && course!=null && student.getStatusCode()==0 && currentUser.getRole().equals("STUDENT")) {
 			// TODO check that today's date is not past add deadline for the course.
 			Enrollment enrollment = new Enrollment();
 			enrollment.setStudent(student);
@@ -88,8 +98,13 @@ public class ScheduleController {
 	 */
 	@DeleteMapping("/schedule/{enrollment_id}")
 	@Transactional
-	public void dropCourse(  @PathVariable int enrollment_id  ) {
-		String student_email = "test@csumb.edu";   // student's email 
+	public void dropCourse(Principal principal,  @PathVariable int enrollment_id  ) {
+		String role_alias = principal.getName();
+		User currentUser = userRepository.findByAlias(role_alias);
+		String student_email = currentUser.getEmail();   // student's email 
+		if(!currentUser.getRole().equals("STUDENT")) {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Not a student");
+		}
 		// TODO  check that today's date is not past deadline to drop course.
 		Enrollment enrollment = enrollmentRepository.findById(enrollment_id).orElse(null);
 		// verify that student is enrolled in the course.

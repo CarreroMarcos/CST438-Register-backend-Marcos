@@ -3,6 +3,7 @@ package com.cst438.controller;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.security.Principal;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,8 @@ import com.cst438.domain.EnrollmentRepository;
 import com.cst438.domain.Student;
 import com.cst438.domain.StudentDTO;
 import com.cst438.domain.StudentRepository;
+import com.cst438.domain.User;
+import com.cst438.domain.UserRepository;
 import com.cst438.service.GradebookService;
 
 @RestController
@@ -36,7 +39,9 @@ public class StudentController {
 	
 	@Autowired
 	EnrollmentRepository enrollmentRepository;
-	
+
+	@Autowired
+	private UserRepository userRepository;
 	
 	// find by student by ID
 	@GetMapping("/student/{student_id}")
@@ -51,7 +56,12 @@ public class StudentController {
 	
 	// Add a student to the repo
 	@PostMapping("/student")
-	public int createStudent(@RequestBody StudentDTO sdto) {
+	public int createStudent(Principal principal, @RequestBody StudentDTO sdto) {
+		String alias = principal.getName();
+		User currentUser = userRepository.findByAlias(alias);
+		if(!currentUser.getRole().equals("ADMIN")) {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Not an admin");
+		}
 		Student check = studentRepository.findByEmail(sdto.studentEmail());
 		if (check != null) {
 			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "student email already exists "+sdto.studentEmail());
@@ -68,7 +78,13 @@ public class StudentController {
 	
 	// Deletes a student with optional force param
 	@DeleteMapping("/student/{id}")
-	public void deleteStudent(@PathVariable("id") int id, @RequestParam("force") Optional<String> force) {
+	public void deleteStudent(Principal principal, @PathVariable("id") int id, @RequestParam("force") Optional<String> force) {
+		String alias = principal.getName();
+		User currentUser = userRepository.findByAlias(alias);
+		if(!currentUser.getRole().equals("ADMIN")) {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Not an admin");
+		}
+		
 		Student s = studentRepository.findById(id).orElse(null);
 		if (s!=null) {
 
@@ -86,7 +102,12 @@ public class StudentController {
 	
 	// Updates existing student with new info
 	@PutMapping("/student/{student_id}")
-	public void updateStudent(@PathVariable("student_id") int id, @RequestBody StudentDTO studentDTO) {
+	public void updateStudent(Principal principal, @PathVariable("student_id") int id, @RequestBody StudentDTO studentDTO) {
+		String alias = principal.getName();
+		User currentUser = userRepository.findByAlias(alias);
+		if(!currentUser.getRole().equals("ADMIN")) {
+			throw  new ResponseStatusException( HttpStatus.BAD_REQUEST, "Not an admin");
+		}
 	    Student existingStudent = studentRepository.findById(id).orElse(null);
 
 	    if (existingStudent != null && !existingStudent.getEmail().equals(studentDTO.studentEmail())) {
